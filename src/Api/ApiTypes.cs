@@ -26,7 +26,8 @@ public class DodgeballEvent
         this.type = type;
         this.ip = ip;
         this.data = data;
-        this.eventTime = eventTime ?? DateTime.Now;
+        this.eventTime = QueryUtils.ToUnixTimestamp(
+            eventTime ?? DateTime.Now);
     }
 
     public string type
@@ -47,7 +48,7 @@ public class DodgeballEvent
         set;
     }
 
-    public DateTime eventTime
+    public long? eventTime
     {
         get;
         set;
@@ -56,29 +57,19 @@ public class DodgeballEvent
 
 public class CheckpointResponseOptions
 {
-    public CheckpointResponseOptions(
-        bool sync,
-        Int32? timeout = null,
-        string? webhook = null)
-    {
-        this.Sync = sync;
-        this.Timeout = timeout;
-        this.Webhook = webhook;
-    }
-    
-    public bool? Sync
+    public bool? sync
     {
         get;
         set;
     }
     
-    public Int32? Timeout
+    public Int32? timeout
     {
         get;
         set;
     }
 
-    public string? Webhook
+    public string? webhook
     {
         get;
         set;
@@ -155,11 +146,39 @@ public static class VerificationOutcome
     public const string ERROR = "ERROR";
 }
 
+public class VerificationStepData {
+   public string? customMessage;
+}
+
+public class LibContent
+{
+    public string? url;
+    public string? text;
+}
+
+public class LibConfig
+{
+    public string name;
+    public string url;
+    public dynamic? config;
+    public string? method;
+    public LibContent? content;
+    public long? loadTimeout;
+}
+
+public class VerificationStep : LibConfig {
+    public string id;
+    public string verificationStepId;
+}
+
 public class DodgeballVerification
 {
     public string id;
     public string status;
     public string outcome;
+    public VerificationStepData? stepData;
+    public VerificationStep[]? nextSteps;
+    public string? error;
 }
 
 public class DodgeballCheckpointResponse : DodgeballResponse{

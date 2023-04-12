@@ -7,6 +7,13 @@ namespace Dodgeball.TrustServer.Api;
 
 public static class QueryUtils
 {
+    public static long ToUnixTimestamp(DateTime dateTime)
+    {
+        return (long) dateTime.ToUniversalTime().Subtract(
+            new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        ).TotalMilliseconds;
+    }
+    
     public static DodgeballResponse CreateErrorResponse(Exception exc)
     {
         var category = exc.GetType().Name;
@@ -41,23 +48,65 @@ public class HttpQuery{
         try
         {
             var url = new Flurl.Url(this.Url).SetQueryParams(this.parameters);
-            DodgeballResponse response = await url.WithHeaders(this.headers).PostJsonAsync(
+            var response =  await url.WithHeaders(this.headers).PostJsonAsync(
                 this.body).ReceiveJson<DodgeballResponse>();
 
-            return new DodgeballResponse
-            {
-                success = false,
-                errors = new DodgeballError[]
-                {
-                    new DodgeballError("NOT_IMPLEMENTED", "Must implement")
-                }
-            };
+            return response;
         }
         catch (Exception exc)
         {
             return QueryUtils.CreateErrorResponse(exc);
         }
     }
+    
+    public async Task<DodgeballCheckpointResponse> PostCheckpoint()
+    {
+        try
+        {
+            var url = new Flurl.Url(this.Url).SetQueryParams(this.parameters);
+            /*
+             * Enable this block for deep debugging purposes
+            var innerResponse = await url.WithHeaders(this.headers).PostJsonAsync(
+                this.body).ReceiveJson();
+            
+            Console.WriteLine(innerResponse);
+            */
+            var response =  await url.WithHeaders(this.headers).PostJsonAsync(
+                this.body).ReceiveJson<DodgeballCheckpointResponse>();
+
+            return response;
+        }
+        catch (Exception exc)
+        {
+            var internalOnly = QueryUtils.CreateErrorResponse(exc);
+            return new DodgeballCheckpointResponse
+            {
+                errors = internalOnly.errors,
+                success = false
+            };
+        }
+    }
+    
+    public async Task<DodgeballCheckpointResponse> GetVerification()
+    {
+        try
+        {
+            var url = new Flurl.Url(this.Url).SetQueryParams(this.parameters);
+            var response =  await url.WithHeaders(this.headers).GetJsonAsync<DodgeballCheckpointResponse>();
+
+            return response;
+        }
+        catch (Exception exc)
+        {
+            var internalOnly = QueryUtils.CreateErrorResponse(exc);
+            return new DodgeballCheckpointResponse
+            {
+                errors = internalOnly.errors,
+                success = false
+            };
+        }
+    }
+
 
     public HttpQuery SetBody(object body)
     {

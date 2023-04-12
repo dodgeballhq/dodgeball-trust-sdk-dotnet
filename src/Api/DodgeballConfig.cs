@@ -9,6 +9,7 @@ public static class DodgeballApiVersion
 
 public class DodgeballConfig
 {
+    public bool? isEnabled;
     public ILogger? Logger;
     public string? ApiUrl;
     public string? ApiVersion;
