@@ -1,0 +1,654 @@
+﻿using System.Data;
+using Newtonsoft.Json.Serialization;
+
+namespace Dodgeball.TrustServer.Api;
+
+
+public class Dodgeball
+{
+  public Dodgeball(string secretKey, DodgeballConfig? config = null)
+  {
+    if (String.IsNullOrEmpty(secretKey))
+    {
+      throw new ArgumentNullException(
+        nameof(secretKey),
+        "Must provide a non-null and non-empty Dodgeball Secret API Key");
+    }
+    
+    this.secretKey = secretKey;
+    this.config = config;
+  }
+  
+  public async Task<DodgeballResponse> PostEvent(
+    string? sourceToken,
+    string sessionId,
+    string? userId,
+    DodgeballEvent dodgeballEvent){
+
+    try
+    {
+      string? baseUrl = this.config?.ApiUrl ?? BASE_URL;
+
+      var headers = new Dictionary<string, string?>();
+      headers["dodgeball-session-id"] = sessionId;
+      headers["dodgeball-secret-key"] = this.secretKey;
+
+      if (!String.IsNullOrEmpty(sourceToken))
+      {
+        headers["dodgeball-source-token"] = sourceToken;
+      }
+      
+      if (!String.IsNullOrEmpty(userId))
+      {
+        headers["dodgeball-customer-id"] = userId;
+      }
+
+      var httpQuery = new HttpQuery(baseUrl, "/v1/track/"
+      ).SetHeaders(headers).SetBody(dodgeballEvent);
+
+      var response = await httpQuery.PostDodgeball();
+      return response;
+    }
+    catch (Exception exc)
+    {
+      return QueryUtils.CreateErrorResponse(exc);
+    }
+  }
+  
+  public const int BASE_CHECKPOINT_TIMEOUT_MS = 100;
+  public const int MAX_TIMEOUT = 10000;
+  public const int MAX_RETRY_COUNT = 3;
+
+  public async Task<DodgeballCheckpointResponse> Checkpoint(
+    DodgeballEvent dodgeballEvent,
+    string? sourceToken,
+    string? sessionId,
+    string? userId = null,
+    string? useVerificationId = null,
+    CheckpointResponseOptions? checkpointResponseOptions = null)
+  {
+    if (String.IsNullOrEmpty(dodgeballEvent.type))
+    {
+      throw new ArgumentNullException("dodgeballEvent.type");
+    }
+
+    if (String.IsNullOrEmpty(dodgeballEvent.ip))
+    {
+      throw new ArgumentNullException("dodgeballEvent.ip");
+    }
+
+    if (String.IsNullOrEmpty(sessionId))
+    {
+      throw new ArgumentException("sessionId");
+    }
+
+    if (dodgeballEvent.eventTime.HasValue)
+    {
+      // This must be set on the server side
+      dodgeballEvent.eventTime = null;
+    }
+    
+    try
+    {
+      checkpointResponseOptions = checkpointResponseOptions ?? new CheckpointResponseOptions
+      {
+        sync = true,
+        timeout = -1
+      };
+      
+      int timeout = checkpointResponseOptions.timeout ?? -1;
+      var trivialTimeout = timeout <= 0;
+      var largeTimeout = timeout > 5 * BASE_CHECKPOINT_TIMEOUT_MS;
+
+      var mustPoll = trivialTimeout || largeTimeout;
+      var activeTimeout = mustPoll
+        ? BASE_CHECKPOINT_TIMEOUT_MS
+        : checkpointResponseOptions?.timeout ?? BASE_CHECKPOINT_TIMEOUT_MS;
+
+      var maximalTimeout = MAX_TIMEOUT;
+      CheckpointResponseOptions internalOptions = new CheckpointResponseOptions
+      {
+        sync = !checkpointResponseOptions.sync.HasValue?
+          true
+          : checkpointResponseOptions.sync.Value,
+        timeout = activeTimeout,
+        webhook = checkpointResponseOptions.webhook
+      };
+
+      DodgeballCheckpointResponse? response = null;
+      var numRepeats = 0;
+      var numFailures = 0;
+
+      bool isDisabled = this.config != null &&
+                        this.config.isEnabled.HasValue &&
+                        !this.config.isEnabled.Value;
+
+      if (isDisabled)
+      {
+        return new DodgeballCheckpointResponse
+        {
+          success = true,
+          errors = new DodgeballError[] { },
+          version = DodgeballApiVersion.V1,
+          verification = new DodgeballVerification
+          {
+            id = "DODGEBALL_IS_DISABLED",
+            status = VerificationStatus.COMPLETE,
+            outcome = VerificationOutcome.APPROVED
+          },
+        };
+      }
+
+      var headers = new Dictionary<string, string?>();
+
+      if (sourceToken != null)
+      {
+        headers["dodgeball-source-token"] = sourceToken;
+      }
+
+      headers["dodgeball-secret-key"] = this.secretKey;
+      var baseUrl = this.config?.ApiUrl ?? BASE_URL;
+
+      if (sessionId != null)
+      {
+        headers["dodgeball-session-id"] = sessionId;
+      }
+
+      if (useVerificationId != null)
+      {
+        headers["dodgeball-verification-id"] = useVerificationId;
+      }
+
+      if (userId != null)
+      {
+        headers["dodgeball-customer-id"] = userId;
+      }
+
+      while (response == null && numRepeats < 3)
+      {
+        Dictionary<string, dynamic> body = new Dictionary<string, dynamic>();
+        body["event"] = dodgeballEvent;
+        body["options"] = internalOptions;
+
+        var httpQuery = new HttpQuery(
+          baseUrl,
+          "/v1/checkpoint").SetHeaders(
+          headers).SetBody(body);
+
+        response = await httpQuery.PostCheckpoint();
+        numRepeats += 1;
+      }
+
+      if (response == null)
+      {
+        return new DodgeballCheckpointResponse
+        {
+          success = false,
+          errors = new DodgeballError[]
+          {
+            new DodgeballError("UNKNOWN", "Unknown evaluation error")
+          }
+        };
+      }
+      else if (!response.success)
+      {
+        return response;
+      }
+
+      var status = response.verification?.status ?? "";
+      var outcome = response.verification?.outcome ?? "";
+      var isResolved = status != VerificationStatus.PENDING;
+      var verificationId = response.verification?.id ?? "";
+
+      headers["dodgeball-verification-id"] = verificationId;
+      while (
+        (trivialTimeout ||
+         (checkpointResponseOptions?.timeout ?? BASE_CHECKPOINT_TIMEOUT_MS) >
+         numRepeats * activeTimeout) &&
+        !isResolved &&
+        numFailures < MAX_RETRY_COUNT
+      )
+      {
+        Thread.Sleep(activeTimeout);
+        activeTimeout =
+          activeTimeout < maximalTimeout ? 2 * activeTimeout : activeTimeout;
+
+        var httpQuery = new HttpQuery(
+          baseUrl,
+          String.Format("/v1/verification/{0}", verificationId)).SetHeaders(
+          headers);
+
+        response = await httpQuery.GetVerification();
+        numRepeats += 1;
+
+        if (response != null && response.success)
+        {
+          status = response.verification?.status ?? "";
+          if (String.IsNullOrEmpty(status))
+          {
+            numFailures += 1;
+          }
+          else
+          {
+            isResolved = status != VerificationStatus.PENDING;
+            numRepeats += 1;
+          }
+        }
+        else
+        {
+          numFailures += 1;
+        }
+      }
+
+      if (numFailures >= MAX_RETRY_COUNT)
+      {
+        var timeoutResponse = new DodgeballCheckpointResponse
+        {
+          success = false,
+          version = DodgeballApiVersion.V1,
+          errors = new DodgeballError[]
+          {
+            new DodgeballError(
+              "UNAVAILABLE",
+              "Service Unavailable: Maximum retry count exceeded")
+          },
+          isTimeout = true,
+        };
+
+        return timeoutResponse;
+      }
+
+      return response;
+    }
+    catch (Exception exc)
+    {
+      var internalData = QueryUtils.CreateErrorResponse(exc);
+      return new DodgeballCheckpointResponse
+      {
+        success = false,
+        errors = internalData.errors,
+      };
+    }
+  }
+  
+  #region State Query Functions
+
+  public bool IsRunning(DodgeballCheckpointResponse checkpointResponse){
+    if (checkpointResponse.success) {
+      switch (checkpointResponse.verification?.status ?? "") {
+        case VerificationStatus.PENDING:
+        case VerificationStatus.BLOCKED:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    return false;
+  }
+
+  public bool IsAllowed(DodgeballCheckpointResponse checkpointResponse)
+  {
+    var status = checkpointResponse.verification?.status ?? "";
+    var outcome = checkpointResponse.verification?.outcome ?? "";
+
+    return checkpointResponse.success &&
+           status == VerificationStatus.COMPLETE &&
+           outcome ==  VerificationOutcome.APPROVED;
+  }
+
+  public bool IsDenied(DodgeballCheckpointResponse checkpointResponse)
+  {
+    var outcome = checkpointResponse.verification?.outcome ?? "";
+    return checkpointResponse.success &&
+           outcome == VerificationOutcome.DENIED;
+  }
+
+  public bool IsUndecided(
+    DodgeballCheckpointResponse checkpointResponse)
+  {
+    var status = checkpointResponse.verification?.status ?? "";
+    var outcome = checkpointResponse.verification?.outcome ?? "";
+    return checkpointResponse.success &&
+           status == VerificationStatus.COMPLETE &&
+           outcome == VerificationOutcome.PENDING;
+  }
+
+  public bool HasError(DodgeballCheckpointResponse checkpointResponse)
+  {
+    var status = checkpointResponse.verification?.status ?? "";
+    var outcome = checkpointResponse.verification?.outcome ?? "";
+
+    return !checkpointResponse.success ||
+           (status == VerificationStatus.FAILED &&
+            outcome == VerificationOutcome.ERROR);
+  }
+
+  public bool IsTimeout(DodgeballCheckpointResponse checkpointResponse)
+  {
+    var status = checkpointResponse.verification?.status ?? "";
+    var outcome = checkpointResponse.verification?.outcome ?? "";
+    return !checkpointResponse.success && checkpointResponse.isTimeout != null &&
+           checkpointResponse.isTimeout.Value;
+
+  }
+  
+  #endregion
+  
+  private string secretKey;
+  private DodgeballConfig? config;
+  private const string BASE_URL = "https://api.dodgeballhq.com/"; 
+  /*
+secretKey: string;
+config: IDodgeballConfig;
+
+// Constructor
+constructor(secretKey: string, config?: IDodgeballConfig) {
+  if (secretKey == null || secretKey?.length === 0) {
+    throw new DodgeballMissingConfigError("secretApiKey", secretKey);
+  }
+  this.secretKey = secretKey;
+
+  this.config = Object.assign(
+    cloneDeep(DEFAULT_CONFIG),
+    cloneDeep(config || {})
+  );
+
+  if (
+    Object.keys(DodgeballApiVersion).indexOf(
+      this.config.apiVersion as DodgeballApiVersion
+    ) < 0
+  ) {
+    throw new DodgeballInvalidConfigError(
+      "config.apiVersion",
+      this.config.apiVersion,
+      Object.keys(DodgeballApiVersion)
+    );
+  }
+
+  const logLevel = this.config.logLevel ?? DodgeballLogLevel.INFO;
+
+  if (
+    Object.keys(DodgeballLogLevel).indexOf(logLevel as DodgeballLogLevel) < 0
+  ) {
+    throw new DodgeballInvalidConfigError(
+      "config.logLevel",
+      logLevel,
+      Object.keys(DodgeballLogLevel)
+    );
+  }
+
+  Logger.filterLevel = Severity[logLevel];
+}
+
+createErrorResponse(code: number, message: string) {
+  return {
+    success: false,
+    errors: [{ code: code, message: message }],
+    version: DodgeballApiVersion.v1,
+    verification: {
+      id: "",
+      status: VerificationStatus.FAILED,
+      outcome: VerificationOutcome.ERROR,
+    },
+  };
+}
+
+public async track({
+  userId,
+  sessionId,
+  sourceToken,
+  event,
+}: ITrackOptions): Promise<void> {
+  if (!event.eventTime) {
+    event.eventTime = Date.now();
+  }
+
+  const response = await makeRequest({
+    url: `${constructApiUrl(
+      this.config.apiUrl as string,
+      this.config.apiVersion
+    )}track`,
+    method: "POST",
+    headers: constructApiHeaders(
+      this.secretKey,
+      "",
+      sourceToken,
+      userId,
+      sessionId
+    ),
+    data: {
+      ...event,
+    },
+    options: {},
+  });
+
+  return;
+}
+
+public async checkpoint({
+  checkpointName,
+  event,
+  sourceToken,
+  userId = "",
+  sessionId = "",
+  useVerificationId = "",
+  options = {},
+}: ICheckpointOptions): Promise<IDodgeballCheckpointResponse> {
+  let trivialTimeout = !options.timeout || options.timeout <= 0;
+  let largeTimeout =
+    options.timeout && options.timeout > 5 * BASE_CHECKPOINT_TIMEOUT_MS;
+  let mustPoll = trivialTimeout || largeTimeout;
+  let activeTimeout = mustPoll
+    ? BASE_CHECKPOINT_TIMEOUT_MS
+    : options.timeout ?? BASE_CHECKPOINT_TIMEOUT_MS;
+
+  let maximalTimeout = MAX_TIMEOUT;
+
+  let internalOptions: ICheckpointResponseOptions = {
+    sync:
+      options.sync === null || options.sync === undefined
+        ? true
+        : options.sync,
+    timeout: activeTimeout,
+    webhook: options.webhook,
+  };
+
+  let response: IDodgeballCheckpointResponse | null = null;
+  let numRepeats = 0;
+  let numFailures = 0;
+
+  // Validate required parameters are present
+  if (checkpointName == null) {
+    throw new DodgeballMissingParameterError(
+      "checkpointName",
+      checkpointName
+    );
+  }
+
+  if (event == null) {
+    throw new DodgeballMissingParameterError("event", event);
+  } else if (!event.hasOwnProperty("ip")) {
+    throw new DodgeballMissingParameterError("event.ip", event.ip);
+  }
+
+  if (sessionId == null) {
+    throw new DodgeballMissingParameterError("sessionId", sessionId);
+  }
+
+  if (!this.config.isEnabled) {
+    // Return a default verification response to allow for development without making requests
+    return {
+      success: true,
+      errors: [],
+      version: DodgeballApiVersion.v1,
+      verification: {
+        id: "DODGEBALL_IS_DISABLED",
+        status: VerificationStatus.COMPLETE,
+        outcome: VerificationOutcome.APPROVED,
+        stepData: {},
+      },
+    } as IDodgeballCheckpointResponse;
+  }
+
+  while (!response && numRepeats < 3) {
+    response = (await makeRequest({
+      url: `${constructApiUrl(
+        this.config.apiUrl as string,
+        this.config.apiVersion
+      )}checkpoint`,
+      method: "POST",
+      headers: constructApiHeaders(
+        this.secretKey,
+        useVerificationId,
+        sourceToken,
+        userId,
+        sessionId
+      ),
+      data: {
+        event: {
+          type: checkpointName,
+          ...event,
+        },
+        options: internalOptions,
+      },
+      options: {},
+    })) as IDodgeballCheckpointResponse;
+
+    numRepeats += 1;
+  }
+
+  if (!response) {
+    return this.createErrorResponse(500, "Unknown evaluation error");
+  } else if (!response.success) {
+    return response;
+  }
+
+  let isResolved =
+    response.verification?.status !== VerificationStatus.PENDING;
+  let verificationId = response.verification?.id;
+
+  // @ts-ignore
+  while (
+    (trivialTimeout ||
+      (options?.timeout ?? BASE_CHECKPOINT_TIMEOUT_MS) >
+        numRepeats * activeTimeout) &&
+    !isResolved &&
+    numFailures < MAX_RETRY_COUNT
+  ) {
+    await sleep(activeTimeout);
+    activeTimeout =
+      activeTimeout < maximalTimeout ? 2 * activeTimeout : activeTimeout;
+
+    response = (await makeRequest({
+      url: `${constructApiUrl(
+        this.config.apiUrl as string,
+        this.config.apiVersion
+      )}verification/${verificationId}`,
+      method: "GET",
+      headers: constructApiHeaders(
+        this.secretKey,
+        useVerificationId,
+        sourceToken,
+        userId,
+        sessionId
+      ),
+    })) as IDodgeballCheckpointResponse;
+
+    if (response && response.success) {
+      let status = response.verification?.status;
+      if (!status) {
+        numFailures += 1;
+      } else {
+        isResolved = status !== VerificationStatus.PENDING;
+        numRepeats += 1;
+      }
+    } else {
+      numFailures += 1;
+    }
+  }
+
+  if (numFailures >= MAX_RETRY_COUNT) {
+    Logger.error("Service Unavailable: Maximum retry count exceeded").log();
+    const timeoutResponse: IDodgeballCheckpointResponse = {
+      success: false,
+      version: DodgeballApiVersion.v1,
+      errors: [
+        {
+          code: 503,
+          message: "Service Unavailable: Maximum retry count exceeded",
+        },
+      ],
+      isTimeout: true,
+    };
+
+    return timeoutResponse;
+  }
+
+  Logger.trace("Returning response:", { response: response }).log();
+  return response as IDodgeballCheckpointResponse;
+}
+
+public isRunning(checkpointResponse: IDodgeballCheckpointResponse): boolean {
+  if (checkpointResponse.success) {
+    switch (checkpointResponse.verification?.status) {
+      case VerificationStatus.PENDING:
+      case VerificationStatus.BLOCKED:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  return false;
+}
+
+public isAllowed(checkpointResponse: IDodgeballCheckpointResponse): boolean {
+  return (
+    checkpointResponse.success &&
+    checkpointResponse.verification?.status === VerificationStatus.COMPLETE &&
+    checkpointResponse.verification?.outcome === VerificationOutcome.APPROVED
+  );
+}
+
+public isDenied(checkpointResponse: IDodgeballCheckpointResponse): boolean {
+  if (checkpointResponse.success) {
+    switch (checkpointResponse.verification?.outcome) {
+      case VerificationOutcome.DENIED:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  return false;
+}
+
+public isUndecided(
+  checkpointResponse: IDodgeballCheckpointResponse
+): boolean {
+  return (
+    checkpointResponse.success &&
+    checkpointResponse.verification?.status === VerificationStatus.COMPLETE &&
+    checkpointResponse.verification?.outcome === VerificationOutcome.PENDING
+  );
+}
+
+public hasError(checkpointResponse: IDodgeballCheckpointResponse): boolean {
+  return (
+    !checkpointResponse.success &&
+    ((checkpointResponse.verification?.status === VerificationStatus.FAILED &&
+      checkpointResponse.verification?.outcome ===
+        VerificationOutcome.ERROR) ||
+      checkpointResponse.errors?.length > 0)
+  );
+}
+
+public isTimeout(checkpointResponse: IDodgeballCheckpointResponse): boolean {
+  return (
+    !checkpointResponse.success && (checkpointResponse.isTimeout as boolean)
+  );
+}
+*/
+}
+
