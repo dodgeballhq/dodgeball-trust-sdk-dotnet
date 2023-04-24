@@ -5,11 +5,31 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Dodgeball.TrustServer.Api</RootNamespace>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId>Dodgeball.TrustServer</PackageId>
+        <Title>Dodgeball SDK for .NET</Title>
+        <Authors>Andrew Schwartz, Patrick Teague</Authors>
+        <Description>Server SDK for clients integrating Dodgeball Protect into .NET server side applications.</Description>
+        <Copyright>Copyright 2023 Dodgeball Inc.  All rights reserved.</Copyright>
+        <PackageProjectUrl>https://dodgeballhq.com</PackageProjectUrl>
+        <PackageLicenseUrl>https://www.dodgeballhq.com/terms-of-service</PackageLicenseUrl>
+        <PackageIcon>favicon.ico</PackageIcon>
+        <RepositoryUrl>https://github.com/dodgeballhq/dodgeball-trust-sdk-dotnet</RepositoryUrl>
+        <RepositoryType>github</RepositoryType>
+        <PackageReleaseNotes>Version 1.0.0.0 of the Dodgeball Server SDK for .NET.</PackageReleaseNotes>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="Flurl.Http.Net45" Version="3.2.0" />
       <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0-preview.2.23128.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="favicon.ico">
+        <Pack>True</Pack>
+        <PackagePath></PackagePath>
+      </None>
     </ItemGroup>
 
 </Project>
