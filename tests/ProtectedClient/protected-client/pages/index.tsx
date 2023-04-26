@@ -16,10 +16,7 @@ export default function PostCheckpointForm({
 }) {
   const dodgeball = useDodgeball();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [hasPaymentError, setHasPaymentError] = useState<boolean>(false);
-  const [paymentErrorMessage, setPaymentErrorMessage] = useState<string>(
-    "We were unable to complete your payment at this time. Please contact support for more information."
-  );
+
   const [verificationId, setVerificationId] = useState<string>(
     ""
   );
@@ -56,7 +53,7 @@ export default function PostCheckpointForm({
     console.log("verificationId", verificationId)
     console.log("Verification Response", verificationResponse)
 
-    const verification = verificationResponse.verification;
+    const verification = verificationResponse?.verification;
     if (verification) {
       dodgeball.handleVerification(verification, {
         onVerified: async (verification) => {
@@ -130,6 +127,13 @@ export default function PostCheckpointForm({
           console.log("ERROR", error);
         },
       });
+    }
+    else{
+      console.log("Null Verification")
+      setIsLoading(false);
+      setVerificationId("")
+      setStatus("System Offline")
+      setOutcome("Continue per Business Continuity")
     }
   };
 
