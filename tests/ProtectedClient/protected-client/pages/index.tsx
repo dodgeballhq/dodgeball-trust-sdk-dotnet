@@ -30,28 +30,6 @@ export default function PostCheckpointForm({
     ""
   );
 
-  const onPaymentSubmitted = (data) => {
-    setIsLoading(false);
-    let message = "Payment successful!";
-    if (data.customMessage) {
-      message = data.customMessage;
-    }
-  };
-
-  const onPaymentDenied = (data) => {
-    setIsLoading(false);
-    let message = paymentErrorMessage;
-    if (data.customMessage) {
-      message = data.customMessage;
-    }
-    setPaymentErrorMessage(message);
-    setHasPaymentError(true);
-  };
-
-  const onPaymentError = () => {
-    setIsLoading(false);
-  };
-
   const submitCheckpoint = async (
     previousVerificationId = null
   ) => {
@@ -59,6 +37,8 @@ export default function PostCheckpointForm({
     const sourceToken = await dodgeball.getSourceToken();
 
     setVerificationId("");
+    setOutcome("");
+    setStatus("");
     const response = await fetch(
       '/api/ClientTransaction/Transaction',
       {
@@ -68,7 +48,7 @@ export default function PostCheckpointForm({
         }
       });
 
-    const verificationResponse = await response.json()
+    let verificationResponse = await response.json()
     console.log("Verification", verificationResponse)
     setVerificationId(verificationResponse?.verification?.id);
     setOutcome(verificationResponse?.verification?.outcome);
@@ -82,49 +62,72 @@ export default function PostCheckpointForm({
         onVerified: async (verification) => {
           setIsLoading(false);
 
-          setVerificationId(verificationResponse?.verification?.id);
-          setOutcome(verificationResponse?.verification?.outcome);
-          setStatus(verificationResponse?.verification?.status);
+          setVerificationId(verification?.id);
+          setOutcome(verification?.outcome);
+          setStatus(verification?.status);
 
+          /*
+           * This means that a Front End interaction was required to
+           * successfully close out the verifications.  For example,
+           * in response to an MFA check.  Pass control back to the
+           * Server to resume the finalized transformation leveraging
+           * the Verification Token
+           */
           console.log("VERIFIED", verification);
-          await fetch(
+          verificationResponse = await fetch(
             '/api/ClientTransaction/Transaction',
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
+                /*
+                 * This additional header value indicates it is a
+                 * continuation.  The Server should validate against
+                 * the underlying transaction ID.
+                 */
                 "priorVerificationId": verification.id
               }
             });
+
+          console.log("Final Verification Response", verificationResponse)
         },
         onApproved: async (verification) => {
           setIsLoading(false);
 
-          setVerificationId(verificationResponse?.verification?.id);
-          setOutcome(verificationResponse?.verification?.outcome);
-          setStatus(verificationResponse?.verification?.status);
+          setVerificationId(verification?.id);
+          setOutcome(verification?.outcome);
+          setStatus(verification?.status);
 
+          /*
+           * Display success information to the user.
+           */
           console.log("APPROVED", verification);
         },
         onDenied: async (verification) => {
           setIsLoading(false)
 
-          setVerificationId(verificationResponse?.verification?.id);
-          setOutcome(verificationResponse?.verification?.outcome);
-          setStatus(verificationResponse?.verification?.status);
+          setVerificationId(verification?.id);
+          setOutcome(verification?.outcome);
+          setStatus(verification?.status);
 
+          /*
+           * Display appropriate user message when the request was
+           * denied
+           */
           console.log("DENIED", verification);
-          onPaymentDenied(verification.stepData);
         },
         onError: async (error) => {
           setIsLoading(false)
 
-          setVerificationId(verificationResponse?.verification?.id);
-          setOutcome(verificationResponse?.verification?.outcome);
-          setStatus(verificationResponse?.verification?.status);
+          setVerificationId(verification?.id);
+          setOutcome(verification?.outcome);
+          setStatus(verification?.status);
 
+          /*
+           * Errors should not occur.  The appropriate business
+           * response is usually to proceed but cross-reference causes
+           */
           console.log("ERROR", error);
-          onPaymentError();
         },
       });
     }
@@ -189,53 +192,3 @@ export default function PostCheckpointForm({
       </section>
     </form>);
 }
-
-/*
-export default function HomePage({initialData}) {
-  const [data, setData] = useState(initialData);
-
-  const fetchData = async () => {
-    try {
-      console.log("About to fetch data")
-      const req = await fetch(
-        '/api/ClientTransaction/Transaction',
-      {
-        method: "POST",
-          headers:{
-          "Content-Type":"application/json"
-        }
-      });
-console.log("Fetched data")
-
-      const newData = await req.json()
-      console.log("Data", newData)
-
-      // return setData(newData);
-    }
-    catch(error){
-      console.log("Error", error)
-      // return setData(JSON.stringify(error))
-    }
-  };
-
-  const handleClick = async (event) => {
-    try {
-      console.log("Handle Click")
-      event.preventDefault();
-      await fetchData();
-      console.log("End handle click")
-    }
-    catch (error){
-      console.log("Error", error)
-    }
-  };
-
-  return (
-    <div className="bg-white">
-      <div className="mx-auto py-8 px-4 sm:px-6 lg:max-w-7xl lg:px-8">
-      <button onClick={handleClick}>Submit Checkpoint</button>
-        <div> {data} </div>
-      </div>
-    </div>
-    )
-}*/
