@@ -1,4 +1,4 @@
-# Dodgeball Server Trust SDK for NodeJS
+# Dodgeball Server Trust SDK for ASP.NET
 
 ## Table of Contents
 - [Purpose](#purpose)
