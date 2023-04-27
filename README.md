@@ -6,7 +6,6 @@
 - [Related](#related)
 - [Installation](#installation)
 - [Usage](#usage)
-- [API](#api)
 
 ## Purpose
 [Dodgeball](https://dodgeballhq.com) enables developers to decouple security logic from their application code. This has several benefits including:
