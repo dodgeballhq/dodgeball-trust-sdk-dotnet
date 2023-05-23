@@ -181,7 +181,8 @@ public class DodgeballVerification
     public string? error;
 }
 
-public class DodgeballCheckpointResponse : DodgeballResponse{
+public class DodgeballCheckpointResponse : DodgeballResponse
+{
     public bool success;
     public DodgeballError[]? errors;
     public string? version;
