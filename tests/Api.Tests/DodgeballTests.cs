@@ -88,7 +88,10 @@ public class DodgeballTests
           // For now we set a hard-coded list of phone numbers, this can
           // be filled in from the client in order to dynamically set
           // MFA phone numbers
-          mfaPhoneNumbers = this.Vars["MFA_PHONE_NUMBERS"],
+          mfa = new 
+          { 
+            phoneNumbers = this.Vars["MFA_PHONE_NUMBERS"]
+          },
           email = "test@dodgeballhq.com",
           // Gr4vy Testing
           gr4vy = new

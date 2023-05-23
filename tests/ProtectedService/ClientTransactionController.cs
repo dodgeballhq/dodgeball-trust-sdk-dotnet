@@ -167,7 +167,10 @@ public class ClientTransactionController : Controller
           // For now we set a hard-coded list of phone numbers, this can
           // be filled in from the client in order to dynamically set
           // MFA phone numbers
-          mfaPhoneNumbers = SimpleEnv.GetEnv("MFA_PHONE_NUMBERS"),
+          mfa = new 
+          { 
+            phoneNumbers = SimpleEnv.GetEnv("MFA_PHONE_NUMBERS")
+          },
           email = "test@dodgeballhq.com",
           // Gr4vy Testing
           gr4vy = new
