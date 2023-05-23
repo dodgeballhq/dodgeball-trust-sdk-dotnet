@@ -106,11 +106,18 @@ public class Dodgeball
         : checkpointResponseOptions?.timeout ?? BASE_CHECKPOINT_TIMEOUT_MS;
 
       var maximalTimeout = MAX_TIMEOUT;
+      var syncResponse = !checkpointResponseOptions.sync.HasValue
+        ? true
+        : checkpointResponseOptions.sync.Value;
+
+      if (activeTimeout > 0)
+      {
+        syncResponse = false;
+      }
+      
       CheckpointResponseOptions internalOptions = new CheckpointResponseOptions
       {
-        sync = !checkpointResponseOptions.sync.HasValue?
-          true
-          : checkpointResponseOptions.sync.Value,
+        sync = syncResponse,
         timeout = activeTimeout,
         webhook = checkpointResponseOptions.webhook
       };
