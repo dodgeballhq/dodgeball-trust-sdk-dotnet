@@ -27,9 +27,13 @@ Once enrolled, you can obtain an API key for your application from the [Dodgebal
 Check out the [Dodgeball Trust Client SDK](https://npmjs.com/package/@dodgeball/trust-sdk-client) for how to integrate Dodgeball into your frontend applications.
 
 ## Installation
-We will be registering the Dodgeball SDK for .NET with nuget.  But until then, please clone the project and include it as source in your projects.  
+The Dodgeball Trust SDK for .NET has current version 1.0.1 and may be [installed via Nuget ](https://www.nuget.org/packages/Dodgeball.TrustServer) using the command:
+
+`dotnet add package Dodgeball.TrustServer --version 1.0.1`
 
 ## Usage
+
+A full sample leveraging the Dodgeball SDK for .NET may be found within the Dodgeball Examples repository at [.NET Sample Project](https://github.com/dodgeballhq/dodgeball-examples/tree/main/server/dotnet/ProtectedService)
 
 ```ts
 using Dodgeball.TrustServer.Api;
