@@ -1,9 +1,14 @@
+namespace SDKTests472;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using NUnit.Framework;
 using dotenv.net;
 using Dodgeball.TrustServer.Api;
 
-namespace Dodgeball.TrustServer.Api.Tests;
-
-public class DodgeballTests
+public class DodgeballDirectTests
 {
     private IDictionary<string, string> Vars;
     private string m_root = "";
@@ -20,7 +25,7 @@ public class DodgeballTests
     }
 
     [Test]
-    public async ValueTask TestTrackingCall()
+    public async Task TestTrackingCall()
     {
         var baseUrl = this.Vars["BASE_URL"];
         var privateKey = this.Vars["PRIVATE_API_KEY"];
@@ -52,7 +57,7 @@ public class DodgeballTests
     }
     
     [Test]
-    public async ValueTask TestCheckpoint()
+    public async Task TestCheckpoint()
     {
         var baseUrl = this.Vars["BASE_URL"];
         var privateKey = this.Vars["PRIVATE_API_KEY"];
