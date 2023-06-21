@@ -1,3 +1,5 @@
+using Newtonsoft.Json;
+
 namespace Dodgeball.TrustServer.Api
 {
     using System;
@@ -52,8 +54,12 @@ namespace Dodgeball.TrustServer.Api
             try
             {
                 var url = new Flurl.Url(this.Url).SetQueryParams(this.parameters);
-                var response = await url.WithHeaders(this.headers).PostJsonAsync(
-                    this.body).ReceiveJson<DodgeballResponse>();
+                var rawResponse = await url.WithHeaders(this.headers).PostJsonAsync(
+                    this.body);
+                
+                var responseString = await rawResponse.GetStringAsync();
+                var response = Newtonsoft.Json.JsonConvert.DeserializeObject<DodgeballResponse>(
+                        responseString);
 
                 return response;
             }
@@ -75,9 +81,13 @@ namespace Dodgeball.TrustServer.Api
                 
                 Console.WriteLine(innerResponse);
                 */
-                var response = await url.WithHeaders(this.headers).PostJsonAsync(
-                    this.body).ReceiveJson<DodgeballCheckpointResponse>();
+                var rawResponse = await url.WithHeaders(this.headers).PostJsonAsync(
+                    this.body);
 
+                var responseString = await rawResponse.GetStringAsync();
+                var response = Newtonsoft.Json.JsonConvert.DeserializeObject<DodgeballCheckpointResponse>(
+                    responseString);
+                
                 return response;
             }
             catch (Exception exc)
@@ -96,7 +106,9 @@ namespace Dodgeball.TrustServer.Api
             try
             {
                 var url = new Flurl.Url(this.Url).SetQueryParams(this.parameters);
-                var response = await url.WithHeaders(this.headers).GetJsonAsync<DodgeballCheckpointResponse>();
+                var responseString = await url.WithHeaders(this.headers).GetStringAsync();
+                var response = JsonConvert.DeserializeObject<DodgeballCheckpointResponse>(
+                    responseString);
 
                 return response;
             }

@@ -20,11 +20,12 @@ public class DodgeballIntegrationTests{
   [Test]
   public async ValueTask TestCheckpoint()
   {
-    // Removing the baseURL setting to test against prod
-    // var baseUrl = this.Vars["BASE_URL"];
+    // Remove the baseURL setting to test against prod
+    var baseUrl = this.Vars["BASE_URL"];
     var privateKey = this.Vars["PRIVATE_API_KEY"];
     var dodgeball = new Dodgeball(
-      privateKey);
+      privateKey,
+      new DodgeballConfig(){ApiUrl = baseUrl});
 
     var date = DateTime.Now;
     var dateString = date.Date.ToShortDateString();
