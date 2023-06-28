@@ -4,7 +4,7 @@
         <LangVersion>9.0</LangVersion>
         <Nullable>enable</Nullable>
         <RootNamespace>Dodgeball.TrustServer.Api</RootNamespace>
-        <Version>1.0.4</Version>
+        <Version>1.0.8</Version>
         <Title>Dodgeball.TrustServer</Title>
         <Description>The Dodgeball Server SDK for .NET</Description>
         <PackageId>Dodgeball.TrustServer</PackageId>
@@ -12,8 +12,8 @@
         <Copyright>Copyright (c) Dodgeball Inc, 2023</Copyright>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<AssemblyVersion>1.0.4</AssemblyVersion>
-	<TargetFrameworks>net7.0;netstandard2.0</TargetFrameworks>
+	<AssemblyVersion>1.0.8</AssemblyVersion>
+	<TargetFramework>netstandard2.0</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>

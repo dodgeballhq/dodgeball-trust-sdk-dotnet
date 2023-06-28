@@ -1,4 +1,6 @@
-﻿namespace Dodgeball.TrustServer.Api
+﻿using System.Diagnostics;
+
+namespace Dodgeball.TrustServer.Api
 {
 
   using System;
@@ -220,7 +222,7 @@
           numFailures < MAX_RETRY_COUNT
         )
         {
-          Thread.Sleep(activeTimeout);
+          await Task.Delay(activeTimeout);
           activeTimeout =
             activeTimeout < maximalTimeout ? 2 * activeTimeout : activeTimeout;
 
