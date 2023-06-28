@@ -1,11 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>9.0</LangVersion>
         <Nullable>enable</Nullable>
         <RootNamespace>Dodgeball.TrustServer.Api</RootNamespace>
-        <Version>1.0.2</Version>
+        <Version>1.0.4</Version>
         <Title>Dodgeball.TrustServer</Title>
         <Description>The Dodgeball Server SDK for .NET</Description>
         <PackageId>Dodgeball.TrustServer</PackageId>
@@ -13,14 +12,16 @@
         <Copyright>Copyright (c) Dodgeball Inc, 2023</Copyright>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<AssemblyVersion>1.0.2</AssemblyVersion>
+	<AssemblyVersion>1.0.4</AssemblyVersion>
+	<TargetFrameworks>net7.0;netstandard2.0</TargetFrameworks>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Flurl.Http.Net45" Version="3.2.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0-preview.2.23128.3" />
       <None Include="docs\README.md" Pack="true" PackagePath="\" />
       <PackageReference Update="NETStandard.Library" Version="2.0.0" />
+      <PackageReference Include="Flurl" Version="3.0.7" />
+      <PackageReference Include="Flurl.Http" Version="3.2.4" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     </ItemGroup>
 
 </Project>

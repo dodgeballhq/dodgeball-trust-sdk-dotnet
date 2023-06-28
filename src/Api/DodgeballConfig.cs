@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-
 namespace Dodgeball.TrustServer.Api
 {
 
@@ -11,9 +9,7 @@ namespace Dodgeball.TrustServer.Api
     public class DodgeballConfig
     {
         public bool? isEnabled;
-        public ILogger? Logger;
         public string? ApiUrl;
         public string? ApiVersion;
-        public LogLevel? LogLevel;
     }
 }
